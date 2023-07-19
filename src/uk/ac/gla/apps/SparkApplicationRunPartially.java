@@ -95,19 +95,19 @@ public class SparkApplicationRunPartially {
 		curStep++;
 		System.out.println("The " + curStep + " step starts");
 
-		for(int j = 0; j < Util.NUM_ITERATION_PER_STEP; j++){
-			kMeansModel = new KMeans()
-					.setK(Util.NUM_CLUSTERS1)
-					.setMaxIterations(1)
-					.setInitialModel(kMeansModel)
-					.run(getInputDataSetRDD(javaSparkContext));
+		// run Util.NUM_ITERATION_PER_STEP iterations in one step
+		kMeansModel = new KMeans()
+				.setK(Util.NUM_CLUSTERS1)
+				.setEpsilon(0)
+				.setMaxIterations(Util.NUM_ITERATION_PER_STEP)
+				.setInitialModel(kMeansModel)
+				.run(getInputDataSetRDD(javaSparkContext));
 
-			System.out.println("The " + (++numIteration) + " iteration");
-			Vector[] vectors1 = kMeansModel.clusterCenters();
-			System.out.println("cluster centers are：");
-			for (int i = 0; i < vectors1.length; i++) {
-				System.out.println(Arrays.toString(vectors1[i].toArray()));
-			}
+		System.out.println("The " + (numIteration + Util.NUM_ITERATION_PER_STEP) + " iteration end");
+		Vector[] vectors1 = kMeansModel.clusterCenters();
+		System.out.println("cluster centers are：");
+		for (int i = 0; i < vectors1.length; i++) {
+			System.out.println(Arrays.toString(vectors1[i].toArray()));
 		}
 
 		saveKMeansModel(javaSparkContext.sc(), kMeansModel);
