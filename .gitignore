@@ -3,4 +3,5 @@ data
 bin
 .settings
 .classpath
+.idea
 Notes.docx
