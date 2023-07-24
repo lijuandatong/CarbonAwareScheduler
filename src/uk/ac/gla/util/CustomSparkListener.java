@@ -1,24 +1,17 @@
 package uk.ac.gla.util;
 
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.mllib.clustering.KMeans;
-import org.apache.spark.mllib.clustering.KMeansModel;
-import org.apache.spark.mllib.linalg.Vector;
-import org.apache.spark.mllib.linalg.Vectors;
 import org.apache.spark.scheduler.*;
 
-import java.util.Arrays;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.sql.*;
 
 public class CustomSparkListener extends SparkListener {
-    private int jobCount = 0;
-    private JavaSparkContext sparkContext;
-    private Timer timer;
+    private long startTime;
+    private long endTime;
+    private Connection connection;
+    private Config config;
 
-    public CustomSparkListener(JavaSparkContext sparkContext){
-        this.sparkContext = sparkContext;
+    public CustomSparkListener(Config config){
+        this.config = config;
     }
 
     @Override
@@ -28,58 +21,72 @@ public class CustomSparkListener extends SparkListener {
 
     @Override
     public void onJobEnd(SparkListenerJobEnd jobEnd) {
-        System.out.println("job结束，job id为：" + jobEnd.jobId());
-        jobCount++;
-        if(jobCount % 5 == 0){
-            System.out.println("执行完5个job了，你可以在这做一些操作");
-            // 取消spark作业
-//            sparkContext.cancelAllJobs();
-
-            // ERROR AsyncEventQueue: Listener CustomSparkListener threw an exception
-            //org.apache.spark.SparkException: Cannot stop SparkContext within listener bus thread.
-//            sparkContext.close();
-//            if(timer == null){
-//                timer = new Timer();
-//            }
-//            timer.schedule(new TimerTask() {
-//                @Override
-//                public void run() {
-//                    System.out.println("30秒到，重新提交作业");
-//                    System.out.println(sparkContext);
-//                    System.out.println("--------------任务重启分割线------------");
-//
-//                    JavaRDD<String> data = sparkContext.textFile("data/kmeans_input_data.txt");
-//                    JavaRDD<Vector> parsedData = data.map(s -> {
-//                        double[] values = Arrays.stream(s.split(" "))
-//                                .mapToDouble(Double::parseDouble)
-//                                .toArray();
-//                        return Vectors.dense(values);
-//                    });
-//                    parsedData.cache();
-//
-//                    KMeansModel clusters = KMeans.train(parsedData.rdd(), Util.NUM_CLUSTERS, Util.MAX_ITERATIONS);
-//                    Vector[] vectors = clusters.clusterCenters();
-//                    System.out.println("kmeans迭代算出的簇中心分别为：");
-//                    for (int i = 0; i < vectors.length; i++) {
-//                        System.out.println(Arrays.toString(vectors[i].toArray()));
-//                    }
-//
-//                }
-//            }, 30000);
-
-        }
     }
 
     @Override
     public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
         System.out.println("应用开始，时间为：" + applicationStart.time());
+        startTime = applicationStart.time();
+        Statement statement = null;
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            connection = DriverManager.getConnection(config.getDbPath());
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if(statement != null){
+                try {
+                    statement.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     @Override
     public void onApplicationEnd(SparkListenerApplicationEnd applicationEnd) {
         System.out.println("应用结束，时间为：" + applicationEnd.time());
-        if(timer != null){
-            timer.cancel();
+        endTime = applicationEnd.time();
+        // write to database
+        PreparedStatement statement = null;
+        try {
+            String sql = "INSERT INTO " + config.getDbTb()
+                    + " (workload_id,spark_master,data_set_size,iterations,clusters,interruption,cur_step,start_time,end_time,duration) "
+                    + "VALUES (?,?,?,?,?,?,?,?,?,?)";
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, config.getWorkloadId());
+            statement.setString(2, config.getSparkMaster());
+            // todo 看要不要不写死
+            statement.setString(3, "3.89G");
+            statement.setInt(4, config.getIterations() + 1);
+            statement.setInt(5, Util.NUM_CLUSTERS);
+            statement.setInt(6, config.getInterruptions());
+            statement.setInt(7, config.getCurStep());
+            statement.setDate(8, new Date(startTime));
+            statement.setDate(9, new Date(endTime));
+            statement.setString(10, String.valueOf((endTime - startTime) / 1000) + "s" );
+            int rows = statement.executeUpdate();
+            System.out.println("数据影响" + rows + "条");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            if(statement != null){
+                try {
+                    statement.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            if(connection != null){
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+
         }
     }
 

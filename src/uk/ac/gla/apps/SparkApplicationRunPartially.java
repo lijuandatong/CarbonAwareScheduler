@@ -14,6 +14,8 @@ import org.apache.spark.mllib.clustering.KMeansModel;
 import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.mllib.linalg.Vectors;
 import org.apache.spark.rdd.RDD;
+import uk.ac.gla.util.Config;
+import uk.ac.gla.util.CustomSparkListener;
 import uk.ac.gla.util.Util;
 
 /**
@@ -26,61 +28,91 @@ import uk.ac.gla.util.Util;
  *
  */
 public class SparkApplicationRunPartially {
+	private static Config config;
 	private static Timer timer;
-	private static String inputDataPath;
-	private static String modelPath = "data/kmeans_model";
-	private static String sparkSessionName = "Kmeans"; // give the session a name
-	private static String sparkMasterDef = "local[4]"; // default is local mode with two executors
-	private static String outPutPathRoot = "data/"; // default is local file directory
+	private static int steps = Util.NUM_STEPS;
+	private static int interationsPerStep = Util.NUM_ITERATION_PER_STEP;
 	private static int curStep = 0;
 	private static int numIteration = 0;
-	private static long startTime;
-	private static long endTime;
 
 	public static void main(String[] args) {
+		String sparkMasterDef;
+		String workloadId;
+		String dataSetPathRoot;
+		int iterations;
+		int interruptions;
+		String dbPath;
+		String logPathRoot;
 		if(args == null || args.length == 0){
 			// local
 			File hadoopDIR = new File("resources/hadoop/"); // represent the hadoop directory as a Java file so we can get an absolute path for it
 			System.setProperty("hadoop.home.dir", hadoopDIR.getAbsolutePath()); // set the JVM system property so that Spark finds it
+
+			workloadId = "local_workload_01";
+			dataSetPathRoot = "data/";
+			iterations = Util.NUM_ITERATION;
+			interruptions = Util.NUM_STEPS - 1;
+			sparkMasterDef = "local[4]"; // default is local mode with two executors
+			logPathRoot = "E:\\glasgow\\CS\\bigData\\teamProject\\MasterProject\\data\\log\\";
+			dbPath = "jdbc:mysql://localhost:3306/master_project_database?useSSL=false&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Europe/London&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&user=root&password=root";
 		}else{
-			outPutPathRoot = args[0];
+			workloadId = args[0];
 			sparkMasterDef = args[1];
-			System.out.println("spark master:" + sparkMasterDef);
+			dataSetPathRoot = args[2];
+			iterations = Integer.valueOf(args[3]);
+			interruptions = Integer.valueOf(args[4]);
+			logPathRoot = args[5];
+			dbPath = args[6];
 		}
+		steps = interruptions + 1;
+		interationsPerStep = iterations % steps == 0 ? (iterations / steps) : (iterations / steps + 1);
+		System.out.println("初始总迭代次数为：" + iterations);
+		System.out.println("总共步骤为：：" + steps);
+		System.out.println("每步的迭代次数：" + interationsPerStep);
+		String dataSetPath = dataSetPathRoot + "kmeans_input_data1.txt";
 
 		// Generator the input data and output to file
-//		String outPutPath = outPutPathRoot + "kmeans_input_data.txt";
-
 //		String[] kmeansArgs = new String[3];
 //        kmeansArgs[0] = String.valueOf(20);
 //        kmeansArgs[1] = String.valueOf(Util.NUM_CLUSTERS);
 //        kmeansArgs[2] = "data/kmeans_input_data.txt";
 //        KMeansDataGenerator.main(kmeansArgs);
 
-		inputDataPath = outPutPathRoot + "kmeans_input_data1.txt";
-
+		String modelPath = dataSetPathRoot + "K-Means_model";
 		File file = new File(modelPath);
 		if(file.exists()){
-			file.delete();
+			deleteFolder(file);
 		}
 
+		config = new Config();
+		config.setAppName("K-Means");
+		config.setSparkMaster(sparkMasterDef);
+		config.setDataSetPath(dataSetPath);
+		config.setDbPath(dbPath);
+		config.setDbTb("t_workload_history_step_by_step");
+		config.setWorkloadId(workloadId);
+		config.setIterations(iterations);
+		config.setLogPath(logPathRoot + "spark-events-by-step");
+		config.setModelPath(modelPath);
+		// 打断次数 打断2次，则分三个步骤执行
+		config.setInterruptions(interruptions);
+
 		// create SparkContext
-		JavaSparkContext javaSparkContext = initSparkContext();
-		startTime = System.currentTimeMillis();
-		System.out.println("开始时间：" + startTime);
+		JavaSparkContext javaSparkContext = initSparkContext(config);
 		// submit a spark job
 		submitSparkJob(javaSparkContext);
 	}
 
-	private static JavaSparkContext initSparkContext() {
+	private static JavaSparkContext initSparkContext(Config config) {
 		// Create the Spark Configuration
 		SparkConf conf = new SparkConf()
-				.setAppName(sparkSessionName)
-				.setMaster(sparkMasterDef)
+				.setAppName(config.getAppName())
+				.setMaster(config.getSparkMaster())
 				.set("spark.eventLog.enabled", "true")
-				.set("spark.eventLog.dir", "E:\\glasgow\\CS\\bigData\\teamProject\\MasterProject\\data\\log\\spark-events-by-step");
+				.set("spark.eventLog.dir", config.getLogPath());
 
 		JavaSparkContext javaSparkContext = new JavaSparkContext(conf);
+		javaSparkContext.sc().addSparkListener(new CustomSparkListener(config));
 		return javaSparkContext;
 	}
 
@@ -93,37 +125,42 @@ public class SparkApplicationRunPartially {
 		}
 
 		curStep++;
+		config.setCurStep(curStep);
 		System.out.println("The " + curStep + " step starts");
 
 		// run Util.NUM_ITERATION_PER_STEP iterations in one step
+		int curIterations = interationsPerStep;
+		if(curStep == steps){
+			curIterations = config.getIterations() - interationsPerStep * (steps - 1);
+		}
+		System.out.println("目前是第 " + curStep + "步");
+		System.out.println("本步迭代要迭代 " + curIterations + " 次");
+
 		kMeansModel = new KMeans()
-				.setK(Util.NUM_CLUSTERS1)
+				.setK(Util.NUM_CLUSTERS)
 				.setEpsilon(0)
-				.setMaxIterations(Util.NUM_ITERATION_PER_STEP)
+				.setMaxIterations(curIterations)
 				.setInitialModel(kMeansModel)
 				.run(getInputDataSetRDD(javaSparkContext));
 
-		System.out.println("The " + (numIteration + Util.NUM_ITERATION_PER_STEP) + " iteration end");
+		numIteration = numIteration + curIterations;
+		System.out.println("The " + numIteration + " iteration end");
 		Vector[] vectors1 = kMeansModel.clusterCenters();
 		System.out.println("cluster centers are：");
 		for (int i = 0; i < vectors1.length; i++) {
 			System.out.println(Arrays.toString(vectors1[i].toArray()));
 		}
 
-		saveKMeansModel(javaSparkContext.sc(), kMeansModel);
-		// stop the spark after one step complete
-		if(curStep == Util.NUM_STEPS){
+		if(curStep == steps){
 			System.out.println("all jobs complete");
 			if(timer != null){
 				timer.cancel();
 			}
 			javaSparkContext.close();
-			endTime = System.currentTimeMillis();
-			System.out.println("结束时间：" + endTime);
-			long cost = endTime - startTime;
-			System.out.println("总耗时 " + ((cost / 1000) / 60.0) + " minutes");
 			return;
 		}
+		saveKMeansModel(javaSparkContext.sc(), kMeansModel);
+		// stop the spark after one step complete
 		setTimer();
 		javaSparkContext.close(); // Close the spark session
 		System.out.println("The " + curStep + " step have completed");
@@ -138,7 +175,7 @@ public class SparkApplicationRunPartially {
 			@Override
 			public void run() {
 				System.out.println("Time is up, resubmit the job.");
-				submitSparkJob(initSparkContext());
+				submitSparkJob(initSparkContext(config));
 			}
 		}, 5000);
 	}
@@ -154,7 +191,7 @@ public class SparkApplicationRunPartially {
 		if(kMeansModel == null){
 			System.out.println("Not get model from the file");
 			kMeansModel = new KMeans()
-					.setK(Util.NUM_CLUSTERS1)
+					.setK(Util.NUM_CLUSTERS)
 					.setInitializationMode("random")
 					.setSeed(1L)
 					.setMaxIterations(1)
@@ -164,7 +201,7 @@ public class SparkApplicationRunPartially {
 	}
 
 	private static RDD getInputDataSetRDD(JavaSparkContext javaSparkContext) {
-		JavaRDD<String> data = javaSparkContext.textFile(inputDataPath);
+		JavaRDD<String> data = javaSparkContext.textFile(config.getDataSetPath());
 		JavaRDD<Vector> parsedData = data.map(s -> {
 			double[] values = Arrays.stream(s.split(" "))
 					.mapToDouble(Double::parseDouble)
@@ -177,79 +214,93 @@ public class SparkApplicationRunPartially {
 
 
 	private static KMeansModel getKMeansModelFromFile(SparkContext context) {
-//        File file = new File(modelPath);
-//        if(file.exists()){
-//			System.out.println("Get the model from the file successfully.");
-//            return KMeansModel.load(context, modelPath);
-//        }
-//        return null;
-
-		FileInputStream fileInputStream = null;
-		ObjectInputStream objectInputStream = null;
-		KMeansModel model = null;
-		try {
-			fileInputStream = new FileInputStream(modelPath);
-			objectInputStream = new ObjectInputStream(fileInputStream);
-			model = (KMeansModel) objectInputStream.readObject();
+        File file = new File(config.getModelPath());
+        if(file.exists()){
 			System.out.println("Get the model from the file successfully.");
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			try {
-				if(objectInputStream != null){
-					objectInputStream.close();
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+            return KMeansModel.load(context, config.getModelPath());
+        }
+        return null;
 
-			try {
-				if(fileInputStream != null){
-					fileInputStream.close();
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-		return model;
+//		FileInputStream fileInputStream = null;
+//		ObjectInputStream objectInputStream = null;
+//		KMeansModel model = null;
+//		try {
+//			fileInputStream = new FileInputStream(modelPath);
+//			objectInputStream = new ObjectInputStream(fileInputStream);
+//			model = (KMeansModel) objectInputStream.readObject();
+//			System.out.println("Get the model from the file successfully.");
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		} finally {
+//			try {
+//				if(objectInputStream != null){
+//					objectInputStream.close();
+//				}
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//			}
+//
+//			try {
+//				if(fileInputStream != null){
+//					fileInputStream.close();
+//				}
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//			}
+//		}
+//		return model;
 	}
 
 	private static void saveKMeansModel(SparkContext context, KMeansModel model) {
-//		File file = new File(modelPath);
-//		if(file.exists()){
-//			file.delete();
-//		}
-//	    model.save(context, modelPath);
+		File file = new File(config.getModelPath());
+		if(file.exists()){
+			deleteFolder(file);
+		}
+	    model.save(context, config.getModelPath());
 
-		FileOutputStream fileOut = null;
-		ObjectOutputStream out = null;
-		try {
-			fileOut = new FileOutputStream(modelPath);
-			// 先清空数据
-			fileOut.write(new byte[0]);
-			out = new ObjectOutputStream(fileOut);
-			out.writeObject(model);
-			System.out.println("The step " + curStep + " will end after a while");
-			System.out.println("KemeansModel have been saved.");
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			try {
-				if(out != null){
-					out.close();
+//		FileOutputStream fileOut = null;
+//		ObjectOutputStream out = null;
+//		try {
+//			fileOut = new FileOutputStream(modelPath);
+//			// 先清空数据
+//			fileOut.write(new byte[0]);
+//			out = new ObjectOutputStream(fileOut);
+//			out.writeObject(model);
+//			System.out.println("The step " + curStep + " will end after a while");
+//			System.out.println("KemeansModel have been saved.");
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		} finally {
+//			try {
+//				if(out != null){
+//					out.close();
+//				}
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//			}
+//			try {
+//				if(fileOut != null){
+//					fileOut.close();
+//				}
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//			}
+//		}
+
+	}
+
+	public static void deleteFolder(File folder) {
+		File[] files = folder.listFiles();
+		if(files!=null) {
+			for(File f: files) {
+				if(f.isDirectory()) {
+					deleteFolder(f);
+				} else {
+					f.delete();
 				}
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			try {
-				if(fileOut != null){
-					fileOut.close();
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
 		}
-
+		folder.delete();
 	}
 
 }

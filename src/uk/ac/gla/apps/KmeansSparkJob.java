@@ -7,62 +7,86 @@ import org.apache.spark.mllib.clustering.KMeans;
 import org.apache.spark.mllib.clustering.KMeansModel;
 import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.mllib.linalg.Vectors;
+import uk.ac.gla.util.Config;
 import uk.ac.gla.util.CustomSparkListener;
 import uk.ac.gla.util.KMeansDataGenerator;
 import uk.ac.gla.util.Util;
 
 import java.io.File;
+import java.sql.*;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 public class KmeansSparkJob {
-    private static long startTime;
-    private static long endTime;
 
     public static void main(String[] args) {
-        // Generator the input data and output to file
-        String outPutPathRoot;
-        String sparkMasterDef = null;
+        TimeZone tz = Calendar.getInstance().getTimeZone();
+        System.out.println("系统时区为：" + tz.getID());
 
+        String sparkMasterDef;
+        String workloadId;
+        String dataSetPathRoot;
+        int iterations;
+        String dbPath;
+        String logPathRoot;
         if(args == null || args.length == 0){
             // local
             File hadoopDIR = new File("resources/hadoop/"); // represent the hadoop directory as a Java file so we can get an absolute path for it
             System.setProperty("hadoop.home.dir", hadoopDIR.getAbsolutePath()); // set the JVM system property so that Spark finds it
 
-            outPutPathRoot = "data/";
+            workloadId = "local_workload_01";
+            dataSetPathRoot = "data/";
+            iterations = Util.NUM_ITERATION;
             sparkMasterDef = "local[4]"; // default is local mode with two executors
+            logPathRoot = "E:\\glasgow\\CS\\bigData\\teamProject\\MasterProject\\data\\log\\";
+            dbPath = "jdbc:mysql://localhost:3306/master_project_database?useSSL=false&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Europe/London&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&user=root&password=root";
         }else{
-            outPutPathRoot = args[0];
+            workloadId = args[0];
             sparkMasterDef = args[1];
-            System.out.println("spark master:" + sparkMasterDef);
+            dataSetPathRoot = args[2];
+            iterations = Integer.valueOf(args[3]);
+            dbPath = args[4];
+            logPathRoot = args[5];
         }
 
-//        String outPutPath = outPutPathRoot + "kmeans_input_data.txt";
+        String dataSetPath = dataSetPathRoot + "kmeans_input_data1.txt";
 
+        // Generator the input data set
 //        String[] kmeansArgs = new String[3];
 //        kmeansArgs[0] = String.valueOf(Util.NUM_DATASETS);
 //        kmeansArgs[1] = String.valueOf(Util.NUM_CLUSTERS);
-//        kmeansArgs[2] = "data/kmeans_input_data.txt";
+//        kmeansArgs[2] = "data/kmeans_input_data3.txt";
 //        KMeansDataGenerator.main(kmeansArgs);
 
-        if (sparkMasterDef==null) sparkMasterDef = "local[4]"; // default is local mode with two executors
+        String sparkSessionName = "K-Means"; // give the session a name
 
-        String sparkSessionName = "Kmeans"; // give the session a name
+        Config config = new Config();
+        config.setAppName(sparkSessionName);
+        config.setSparkMaster(sparkMasterDef);
+        config.setDataSetPath(dataSetPath);
+        config.setDbPath(dbPath);
+        config.setDbTb("t_workload_history_at_once");
+        config.setWorkloadId(workloadId);
+        config.setIterations(iterations);
+        config.setInterruptions(0);
+        config.setLogPath(logPathRoot + "spark-events");
 
         // Create the Spark Configuration
         SparkConf conf = new SparkConf()
-                .setAppName(sparkSessionName)
-                .setMaster(sparkMasterDef)
+                .setAppName(config.getAppName())
+                .setMaster(config.getSparkMaster())
                 .set("spark.eventLog.enabled", "true")
-                .set("spark.eventLog.dir", "E:\\glasgow\\CS\\bigData\\teamProject\\MasterProject\\data\\log\\spark-events");
-
+                .set("spark.eventLog.dir", config.getLogPath());
         JavaSparkContext javaSparkContext = new JavaSparkContext(conf);
+
         // set spark listener to listen the process
-        javaSparkContext.sc().addSparkListener(new CustomSparkListener(javaSparkContext));
+        javaSparkContext.sc().addSparkListener(new CustomSparkListener(config));
 
-        startTime = System.currentTimeMillis();
-        System.out.println("开始时间：" + startTime);
+//        startTime = System.currentTimeMillis();
+//        System.out.println("开始时间：" + startTime);
 
-        JavaRDD<String> data = javaSparkContext.textFile("data/kmeans_input_data1.txt");
+        JavaRDD<String> data = javaSparkContext.textFile(dataSetPath);
         JavaRDD<Vector> parsedData = data.map(s -> {
             String[] strArray = s.split(" ");
             double[] values = new double[strArray.length];
@@ -74,7 +98,7 @@ public class KmeansSparkJob {
         parsedData.cache();
 
         KMeansModel clusters = new KMeans()
-                .setK(Util.NUM_CLUSTERS1)
+                .setK(Util.NUM_CLUSTERS)
                 .setInitializationMode("random")
                 .setMaxIterations(Util.NUM_ITERATION + 1)
                 .setEpsilon(0)
@@ -82,21 +106,9 @@ public class KmeansSparkJob {
                 .run(parsedData.rdd());
 
         Vector[] vectors = clusters.clusterCenters();
-        System.out.println("kmeans迭代算出的簇中心分别为：");
+        System.out.println("The cluster centers are：");
         for (int i = 0; i < vectors.length; i++) {
             System.out.println(Arrays.toString(vectors[i].toArray()));
         }
-
-//        try {
-//            Thread.sleep(3600 * 1000);
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-
-
-        endTime = System.currentTimeMillis();
-        System.out.println("结束时间：" + endTime);
-        long cost = endTime - startTime;
-        System.out.println("总耗时 " + ((cost / 1000) / 60.0) + " minutes");
     }
 }
