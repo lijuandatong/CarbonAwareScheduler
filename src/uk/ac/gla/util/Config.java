@@ -5,6 +5,7 @@ public class Config {
     private String sparkMaster;
     private String workloadId;
     private String dataSetPath;
+    private String dataSize;
     private int iterations;
     private int interruptions;
     private int curStep;
@@ -19,6 +20,14 @@ public class Config {
 
     public void setDbTb(String dbTb) {
         this.dbTb = dbTb;
+    }
+
+    public String getDataSize() {
+        return dataSize;
+    }
+
+    public void setDataSize(String dataSize) {
+        this.dataSize = dataSize;
     }
 
     public int getInterruptions() {

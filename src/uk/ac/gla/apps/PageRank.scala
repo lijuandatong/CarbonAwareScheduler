@@ -1,7 +1,7 @@
 package uk.ac.gla.apps
 
 import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.graphx.{Edge, Graph, GraphLoader, VertexId}
+import org.apache.spark.graphx.{Edge, Graph, GraphLoader, VertexId, VertexRDD}
 import org.apache.spark.rdd.RDD
 
 object PageRank {
@@ -31,29 +31,17 @@ object PageRank {
       Edge(4L, 1L, 1.0)
     ))
 
-//    val graph = GraphLoader.edgeListFile(sparkContext, conf.input())
+    val graph = GraphLoader.edgeListFile(sparkContext, "data/pagerank_data.txt")
 //    val pr = graph.staticPageRank(conf.iterations())
 
     // 创建图
-    val graph = Graph(vertices, edges)
+//    val graph = Graph(vertices, edges)
 
 
     // 计算 PageRank
-    val result = graph.staticPageRank(5)
+    val result = graph.staticPageRank(10)
 
-    val graph1 = Graph(result.vertices, edges)
-
-//    // 创建一个新的图，其顶点属性包含PageRank值
-//    val graph1 = graph.joinVertices(result.vertices) {
-//      case (id, oldAttr, newPageRank) => newPageRank.toString
-//    }
-
-    val result1 = graph1.staticPageRank(5)
-
-//    val graph3 = graph1.staticPageRank(5)
-//    val ranks = graph.staticPageRank(10).vertices
-
-    result1.vertices.collect().foreach { case (id, rank) =>
+    result.vertices.collect().foreach { case (id, rank) =>
       println(s"Node $id has rank: $rank")
     }
 

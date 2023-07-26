@@ -1,6 +1,7 @@
 package uk.ac.gla.apps;
 
 import java.io.*;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -27,7 +28,7 @@ import uk.ac.gla.util.Util;
  * @author Richard
  *
  */
-public class SparkApplicationRunPartially {
+public class KMeansJobStepByStep {
 	private static Config config;
 	private static Timer timer;
 	private static int steps = Util.NUM_STEPS;
@@ -69,7 +70,7 @@ public class SparkApplicationRunPartially {
 		System.out.println("初始总迭代次数为：" + iterations);
 		System.out.println("总共步骤为：：" + steps);
 		System.out.println("每步的迭代次数：" + interationsPerStep);
-		String dataSetPath = dataSetPathRoot + "kmeans_input_data1.txt";
+		String dataSetPath = dataSetPathRoot + Util.KMEANS_DATA_SET_PATH;
 
 		// Generator the input data and output to file
 //		String[] kmeansArgs = new String[3];
@@ -85,6 +86,13 @@ public class SparkApplicationRunPartially {
 		}
 
 		config = new Config();
+
+		File inputData = new File(dataSetPath);
+		if(inputData.exists()){
+			double length =  inputData.length() / 1024.0 / 1024.0 / 1024.0;
+			config.setDataSize(new DecimalFormat("#.0").format(length) + "GB");
+		}
+
 		config.setAppName("K-Means");
 		config.setSparkMaster(sparkMasterDef);
 		config.setDataSetPath(dataSetPath);

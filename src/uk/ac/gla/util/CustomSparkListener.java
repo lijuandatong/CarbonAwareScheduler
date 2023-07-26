@@ -52,20 +52,20 @@ public class CustomSparkListener extends SparkListener {
         PreparedStatement statement = null;
         try {
             String sql = "INSERT INTO " + config.getDbTb()
-                    + " (workload_id,spark_master,data_set_size,iterations,clusters,interruption,cur_step,start_time,end_time,duration) "
-                    + "VALUES (?,?,?,?,?,?,?,?,?,?)";
+                    + " (app_name,workload_id,spark_master,data_set_size,iterations,clusters,interruption,cur_step,start_time,end_time,duration_sec) "
+                    + "VALUES (?,?,?,?,?,?,?,?,?,?,?)";
             statement = connection.prepareStatement(sql);
-            statement.setString(1, config.getWorkloadId());
-            statement.setString(2, config.getSparkMaster());
-            // todo 看要不要不写死
-            statement.setString(3, "3.89G");
-            statement.setInt(4, config.getIterations() + 1);
-            statement.setInt(5, Util.NUM_CLUSTERS);
-            statement.setInt(6, config.getInterruptions());
-            statement.setInt(7, config.getCurStep());
-            statement.setDate(8, new Date(startTime));
-            statement.setDate(9, new Date(endTime));
-            statement.setString(10, String.valueOf((endTime - startTime) / 1000) + "s" );
+            statement.setString(1, config.getAppName());
+            statement.setString(2, config.getWorkloadId());
+            statement.setString(3, config.getSparkMaster());
+            statement.setString(4, config.getDataSize());
+            statement.setInt(5, config.getIterations() + 1);
+            statement.setInt(6, Util.NUM_CLUSTERS);
+            statement.setInt(7, config.getInterruptions());
+            statement.setInt(8, config.getCurStep());
+            statement.setDate(9, new Date(startTime));
+            statement.setDate(10, new Date(endTime));
+            statement.setInt(11, (int)((endTime - startTime) / 1000));
             int rows = statement.executeUpdate();
             System.out.println("数据影响" + rows + "条");
         } catch (SQLException e) {

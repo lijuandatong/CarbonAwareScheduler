@@ -9,16 +9,15 @@ import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.mllib.linalg.Vectors;
 import uk.ac.gla.util.Config;
 import uk.ac.gla.util.CustomSparkListener;
-import uk.ac.gla.util.KMeansDataGenerator;
 import uk.ac.gla.util.Util;
 
 import java.io.File;
-import java.sql.*;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.TimeZone;
 
-public class KmeansSparkJob {
+public class KMeansJob {
 
     public static void main(String[] args) {
         TimeZone tz = Calendar.getInstance().getTimeZone();
@@ -50,8 +49,7 @@ public class KmeansSparkJob {
             logPathRoot = args[5];
         }
 
-        String dataSetPath = dataSetPathRoot + "kmeans_input_data1.txt";
-
+        String dataSetPath = dataSetPathRoot + Util.KMEANS_DATA_SET_PATH;
         // Generator the input data set
 //        String[] kmeansArgs = new String[3];
 //        kmeansArgs[0] = String.valueOf(Util.NUM_DATASETS);
@@ -59,10 +57,15 @@ public class KmeansSparkJob {
 //        kmeansArgs[2] = "data/kmeans_input_data3.txt";
 //        KMeansDataGenerator.main(kmeansArgs);
 
-        String sparkSessionName = "K-Means"; // give the session a name
-
         Config config = new Config();
-        config.setAppName(sparkSessionName);
+
+        File file = new File(dataSetPath);
+        if(file.exists()){
+            double length =  file.length() / 1024.0 / 1024.0 / 1024.0;
+            config.setDataSize(new DecimalFormat("#.00").format(length) + "GB");
+        }
+
+        config.setAppName("K-Means");
         config.setSparkMaster(sparkMasterDef);
         config.setDataSetPath(dataSetPath);
         config.setDbPath(dbPath);
@@ -71,6 +74,7 @@ public class KmeansSparkJob {
         config.setIterations(iterations);
         config.setInterruptions(0);
         config.setLogPath(logPathRoot + "spark-events");
+        config.setCurStep(1);
 
         // Create the Spark Configuration
         SparkConf conf = new SparkConf()

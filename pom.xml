@@ -151,7 +151,7 @@
                     <manifest>
                         <addClasspath>true</addClasspath>
                         <classpathPrefix>lib/</classpathPrefix>
-                        <mainClass>uk.ac.gla.apps.SparkApplicationRunPartially</mainClass>
+                        <mainClass>uk.ac.gla.apps.KMeansJobStepByStep</mainClass>
                     </manifest>
                 </archive>
             </configuration>
@@ -197,7 +197,7 @@
 <!--                            <transformer-->
 <!--                                implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">-->
 <!--                                &lt;!&ndash; Main class for the Jar file &ndash;&gt;-->
-<!--                                <mainClass>uk.ac.gla.apps.SparkApplicationRunPartially</mainClass>-->
+<!--                                <mainClass>uk.ac.gla.apps.KMeansJobStepByStep</mainClass>-->
 <!--                            </transformer>-->
 <!--                            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>-->
 <!--                     </transformers>-->
