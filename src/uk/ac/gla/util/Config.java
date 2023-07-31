@@ -13,6 +13,15 @@ public class Config {
     private String dbTb;
     private String logPath;
     private String modelPath;
+    private String bucket;
+
+    public String getBucket() {
+        return bucket;
+    }
+
+    public void setBucket(String bucket) {
+        this.bucket = bucket;
+    }
 
     public String getDbTb() {
         return dbTb;

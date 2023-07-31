@@ -19,6 +19,7 @@ object GradientBoostedTrees {
     val data = MLUtils.loadLabeledPoints(sparkContext, "")
     // Split the data into training and test sets (30% held out for testing)
     val splits = data.randomSplit(Array(0.7, 0.3))
+
     val (trainingData, testData) = (splits(0), splits(1))
 
     // Train a GradientBoostedTrees model.

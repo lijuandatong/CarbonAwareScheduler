@@ -32,7 +32,7 @@ public class KMeansJobStepByStep {
 	private static Config config;
 	private static Timer timer;
 	private static int steps = Util.NUM_STEPS;
-	private static int interationsPerStep = Util.NUM_ITERATION_PER_STEP;
+	private static int interationsPerStep = Util.getNumIterationPerStep();
 	private static int curStep = 0;
 	private static int numIteration = 0;
 
@@ -66,7 +66,7 @@ public class KMeansJobStepByStep {
 			dbPath = args[6];
 		}
 		steps = interruptions + 1;
-		interationsPerStep = iterations % steps == 0 ? (iterations / steps) : (iterations / steps + 1);
+		interationsPerStep = Util.getNumIterationPerStep();
 		System.out.println("初始总迭代次数为：" + iterations);
 		System.out.println("总共步骤为：：" + steps);
 		System.out.println("每步的迭代次数：" + interationsPerStep);
@@ -99,7 +99,7 @@ public class KMeansJobStepByStep {
 		config.setDbPath(dbPath);
 		config.setDbTb("t_workload_history_step_by_step");
 		config.setWorkloadId(workloadId);
-		config.setIterations(iterations);
+		config.setIterations(iterations + 1);
 		config.setLogPath(logPathRoot + "spark-events-by-step");
 		config.setModelPath(modelPath);
 		// 打断次数 打断2次，则分三个步骤执行
@@ -139,7 +139,7 @@ public class KMeansJobStepByStep {
 		// run Util.NUM_ITERATION_PER_STEP iterations in one step
 		int curIterations = interationsPerStep;
 		if(curStep == steps){
-			curIterations = config.getIterations() - interationsPerStep * (steps - 1);
+			curIterations = (config.getIterations() - 1) - interationsPerStep * (steps - 1);
 		}
 		System.out.println("目前是第 " + curStep + "步");
 		System.out.println("本步迭代要迭代 " + curIterations + " 次");

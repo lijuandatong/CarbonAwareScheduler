@@ -27,20 +27,11 @@ public class CustomSparkListener extends SparkListener {
     public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
         System.out.println("应用开始，时间为：" + applicationStart.time());
         startTime = applicationStart.time();
-        Statement statement = null;
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             connection = DriverManager.getConnection(config.getDbPath());
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            if(statement != null){
-                try {
-                    statement.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
         }
     }
 
@@ -59,7 +50,7 @@ public class CustomSparkListener extends SparkListener {
             statement.setString(2, config.getWorkloadId());
             statement.setString(3, config.getSparkMaster());
             statement.setString(4, config.getDataSize());
-            statement.setInt(5, config.getIterations() + 1);
+            statement.setInt(5, config.getIterations());
             statement.setInt(6, Util.NUM_CLUSTERS);
             statement.setInt(7, config.getInterruptions());
             statement.setInt(8, config.getCurStep());
