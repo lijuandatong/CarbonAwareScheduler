@@ -68,7 +68,7 @@ public class KMeansJob {
         config.setAppName("K-Means");
         config.setSparkMaster(sparkMasterDef);
         config.setDataSetPath(dataSetPath);
-        config.setDbPath(dbPath);
+        config.setExecutionLogPath(dbPath);
         config.setDbTb("t_workload_history_at_once");
         config.setWorkloadId(workloadId);
         config.setIterations(iterations);

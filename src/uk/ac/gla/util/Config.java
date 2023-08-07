@@ -9,7 +9,7 @@ public class Config {
     private int iterations;
     private int interruptions;
     private int curStep;
-    private String dbPath;
+    private String executionLogPath;
     private String dbTb;
     private String logPath;
     private String modelPath;
@@ -103,12 +103,12 @@ public class Config {
         this.iterations = iterations;
     }
 
-    public String getDbPath() {
-        return dbPath;
+    public String getExecutionLogPath() {
+        return executionLogPath;
     }
 
-    public void setDbPath(String dbPath) {
-        this.dbPath = dbPath;
+    public void setExecutionLogPath(String executionLogPath) {
+        this.executionLogPath = executionLogPath;
     }
 
     public String getLogPath() {

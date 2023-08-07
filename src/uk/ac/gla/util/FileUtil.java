@@ -4,13 +4,16 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 
 public class FileUtil {
     /**
@@ -36,29 +39,6 @@ public class FileUtil {
                 System.out.println("Failed to delete object: " + blob.getName());
             }
         }
-//        if(config.getSparkMaster().equals("yarn")){
-//            String modelPath = config.getModelPath();
-//            // 创建Google Cloud Storage客户端
-//            Storage storage = StorageOptions.getDefaultInstance().getService();
-//            // 列出所有以指定前缀开始的对象
-//            Iterable<Blob> blobs = storage.list("", Storage.BlobListOption.prefix(modelPath)).iterateAll();
-//
-//            // 删除每个对象
-//            for (Blob blob : blobs) {
-//                boolean deleted = blob.delete();
-//                if (deleted) {
-//                    System.out.println("Object deleted: " + blob.getName());
-//                } else {
-//                    System.out.println("Failed to delete object: " + blob.getName());
-//                }
-//            }
-//        }else{
-//            // local
-//            File file = new File(config.getModelPath());
-//            if(file.exists()){
-//                deleteFolder(file);
-//            }
-//        }
     }
 
     public static void deleteFolderFromLocal(File folder) {
@@ -77,13 +57,14 @@ public class FileUtil {
     }
 
     public static void deleteFile(String directoryName){
+        System.out.println("The file is " + directoryName);
         try {
             Configuration conf = new Configuration();
             FileSystem fs = FileSystem.get(new URI(directoryName), conf);
 
             if (fs.exists(new Path(directoryName))) {
                 fs.delete(new Path(directoryName), true); // "true" 代表如果是目录则递归删除
-                System.out.println(directoryName + "is deleted");
+                System.out.println(directoryName + " is deleted");
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -120,5 +101,44 @@ public class FileUtil {
             e.printStackTrace();
         }
         return fileSize;
+    }
+
+    /**
+     * Write a record to csv file
+     * @param filePath
+     * @param record
+     */
+    public static void writeRecordToCsvFile(String filePath, String[] record){
+        FSDataOutputStream outputStream = null;
+        PrintWriter writer = null;
+        Path path = new Path(filePath);
+        try {
+            Configuration configuration = new Configuration();
+            FileSystem fs = FileSystem.get(new URI(filePath), configuration);
+            if(fs.exists(path)){
+                outputStream = fs.append(path);
+            }else{
+                outputStream = fs.create(path);
+            }
+            writer = new PrintWriter(outputStream);
+
+            // Write the data
+            writer.print("\n");
+            writer.print(String.join(",", record));
+            System.out.println("Write a record successfully.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if(writer != null){
+                writer.close();
+            }
+            try {
+                if(outputStream != null){
+                    outputStream.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

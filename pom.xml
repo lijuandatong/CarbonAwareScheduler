@@ -89,6 +89,19 @@
         <scope>provided</scope>
     </dependency>
 
+    <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpclient</artifactId>
+        <version>4.5.13</version>
+    </dependency>
+
+    <dependency>
+        <groupId>com.alibaba.fastjson2</groupId>
+        <artifactId>fastjson2</artifactId>
+        <version>2.0.34</version>
+    </dependency>
+
+
 </dependencies>
   
 <build>
@@ -207,7 +220,7 @@
                             <transformer
                                 implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                 <!-- Main class for the Jar file -->
-                                <mainClass>uk.ac.gla.apps.CustomPageRankJob</mainClass>
+                                <mainClass>uk.ac.gla.apps.KMeansJobStepByStep</mainClass>
                             </transformer>
                             <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                      </transformers>

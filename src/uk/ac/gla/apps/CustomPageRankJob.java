@@ -1,11 +1,5 @@
 package uk.ac.gla.apps;
 
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -15,10 +9,6 @@ import uk.ac.gla.util.CustomSparkListener;
 import uk.ac.gla.util.FileUtil;
 import uk.ac.gla.util.Util;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.text.DecimalFormat;
 import java.util.*;
 
@@ -27,7 +17,7 @@ public class CustomPageRankJob {
     private static Config config;
     private static Timer timer;
     private static int steps = Util.NUM_STEPS;
-    private static int interationsPerStep = Util.getNumIterationPerStep();
+    private static int interationsPerStep;
     private static int curStep = 0;
     private static int numIteration = 0;
 
@@ -37,8 +27,7 @@ public class CustomPageRankJob {
         String root;
         int iterations;
         int interruptions;
-        String dbPath;
-        String logPathRoot;
+//        String executionLogPath;
         if(args == null || args.length == 0){
             // local
 //            File hadoopDIR = new File("resources/hadoop/"); // represent the hadoop directory as a Java file so we can get an absolute path for it
@@ -49,7 +38,7 @@ public class CustomPageRankJob {
             iterations = Util.NUM_ITERATION;
             interruptions = Util.NUM_STEPS - 1;
             sparkMasterDef = "local[4]"; // default is local mode with two executors
-            dbPath = "jdbc:mysql://localhost:3306/master_project_database?useSSL=false&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Europe/London&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&user=root&password=root";
+//            executionLogPath = "jdbc:mysql://localhost:3306/master_project_database?useSSL=false&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Europe/London&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&user=root&password=root";
         }else{
             workloadId = args[0];
             sparkMasterDef = args[1];
@@ -57,14 +46,8 @@ public class CustomPageRankJob {
             // 转换为路径 gs://dataproc-staging-europe-north1-50159985750-plelxggi/
             iterations = Integer.valueOf(args[3]);
             interruptions = Integer.valueOf(args[4]);
-            dbPath = args[5];
+//            executionLogPath = args[5];
         }
-        steps = interruptions + 1;
-        interationsPerStep = Util.getNumIterationPerStep();
-        System.out.println("初始总迭代次数为：" + iterations);
-        System.out.println("总共步骤为：：" + steps);
-        System.out.println("每步的迭代次数：" + interationsPerStep);
-
         config = new Config();
         config.setAppName("PageRank");
         config.setSparkMaster(sparkMasterDef);
@@ -78,12 +61,18 @@ public class CustomPageRankJob {
         String modelPath = root + Util.PAGERANK_MODEL_RELATIVE_PATH;
         config.setModelPath(modelPath);
 
-        config.setDbPath(dbPath);
+        config.setExecutionLogPath(root + "results/execution_log.csv");
         config.setDbTb("t_workload_history_step_by_step");
         config.setIterations(iterations);
         config.setLogPath(root + "data/log/spark-events-by-step");
         // 打断次数 打断2次，则分三个步骤执行
         config.setInterruptions(interruptions);
+
+        steps = interruptions + 1;
+        interationsPerStep = Util.getNumIterationPerStep(config);
+        System.out.println("初始总迭代次数为：" + iterations);
+        System.out.println("总共步骤为：：" + steps);
+        System.out.println("每步的迭代次数：" + interationsPerStep);
 
         // get the size of file
         long fileSize = FileUtil.getFileSize(dataSetPath);
@@ -133,13 +122,13 @@ public class CustomPageRankJob {
                     .mapToPair(pair -> new Tuple2<>(pair._1(), 0.15 + 0.85 * pair._2()));
 
 //            ranks.foreach(data -> System.out.println(data));
+//             打印前 10 条记录
+            List<Tuple2<String, Double>> records = ranks.take(10);
+            for(Tuple2<String, Double> data : records){
+                System.out.println("calculate model is Key: " + data._1() + ", Value: " + data._2());
+            }
+//            saveRanks(ranks);
         }
-        // 打印前 10 条记录
-//        List<Tuple2<String, Double>> records = ranks.take(10);
-//        for(Tuple2<String, Double> data : records){
-//            System.out.println("Key: " + data._1() + ", Value: " + data._2());
-//        }
-//        ranks.foreach(data -> System.out.println(data));
 
         numIteration = numIteration + curIterations;
         System.out.println("The " + numIteration + " iteration end");
@@ -177,6 +166,14 @@ public class CustomPageRankJob {
 
     private static JavaPairRDD<String, Double> getRanks(JavaSparkContext javaSparkContext) {
         JavaPairRDD<String, Double> ranks = getRanksFromFile(javaSparkContext);
+        // 打印前 10 条记录
+//        if(ranks != null){
+//            List<Tuple2<String, Double>> records = ranks.take(10);
+//            for(Tuple2<String, Double> data : records){
+//                System.out.println("ranks read from model : Key: " + data._1() + ", Value: " + data._2());
+//            }
+//        }
+
         if(ranks == null){
             // init rank 1.0
             System.out.println("The pagerank model is null, init ranks 1.0");
@@ -189,20 +186,11 @@ public class CustomPageRankJob {
     private static void saveRanks(JavaPairRDD<String, Double> ranks){
         FileUtil.deleteFile(config.getModelPath());
         ranks.saveAsTextFile(config.getModelPath());
+        System.out.println("rank model is saved");
     }
 
     private static JavaPairRDD<String, Double> getRanksFromFile(JavaSparkContext sparkContext) {
         boolean isModelExist = FileUtil.isHadoopDirectoryExist(config.getModelPath());
-//        if(config.getSparkMaster().equals("yarn")){
-//            // 创建 Google Cloud Storage 客户端
-//            Storage storage = StorageOptions.getDefaultInstance().getService();
-//            // 获取 Blob 对象
-//            Blob blob = storage.get(config.getBucket(), Util.PAGERANK_MODEL_RELATIVE_PATH);
-//            isModelExist = blob != null;
-//        }else{
-//            File file = new File(config.getModelPath());
-//            isModelExist = file.exists();
-//        }
         if(isModelExist){
             System.out.println("Get the model from the file successfully.");
             System.out.println("model path 为：" + config.getModelPath());
@@ -227,7 +215,7 @@ public class CustomPageRankJob {
                 .set("spark.eventLog.dir", config.getLogPath());
 
         JavaSparkContext javaSparkContext = new JavaSparkContext(conf);
-//        javaSparkContext.sc().addSparkListener(new CustomSparkListener(config));
+        javaSparkContext.sc().addSparkListener(new CustomSparkListener(config));
         return javaSparkContext;
     }
 
@@ -241,6 +229,6 @@ public class CustomPageRankJob {
                 System.out.println("Time is up, resubmit the job.");
                 submitSparkJob(initSparkContext(config));
             }
-        }, 5000);
+        }, 120000);
     }
 }
