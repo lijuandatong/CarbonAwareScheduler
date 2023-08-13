@@ -13,6 +13,7 @@ public class Config {
     private String dbTb;
     private String logPath;
     private String modelPath;
+    private String initialModelPath;
     private String bucket;
 
     public String getBucket() {
@@ -61,6 +62,14 @@ public class Config {
 
     public void setModelPath(String modelPath) {
         this.modelPath = modelPath;
+    }
+
+    public String getInitialModelPath() {
+        return initialModelPath;
+    }
+
+    public void setInitialModelPath(String initialModelPath) {
+        this.initialModelPath = initialModelPath;
     }
 
     public String getAppName() {

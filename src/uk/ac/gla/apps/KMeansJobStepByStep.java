@@ -67,6 +67,7 @@ public class KMeansJobStepByStep {
 		config.setDataSetPath(dataSetPath);
 		String modelPath = root + Util.KMEANS_MODEL_PATH;
 		config.setModelPath(modelPath);
+		config.setInitialModelPath(root + "data/K-Means_initial_model");
 
 		config.setExecutionLogPath(root + "results/execution_log.csv");
 		config.setIterations(iterations);
@@ -91,6 +92,10 @@ public class KMeansJobStepByStep {
 		System.out.println("Delete the model generated in last time");
 
 		JavaSparkContext sparkContext = initSparkContext(config);
+
+//		generateInitialKMeansModel(sparkContext);
+//		sparkContext.close();
+
 		submitSparkJob(sparkContext);
 	}
 
@@ -108,16 +113,16 @@ public class KMeansJobStepByStep {
 	}
 
 	private static void submitSparkJob(JavaSparkContext javaSparkContext) {
+		curStep++;
+		config.setCurStep(curStep);
+		System.out.println("The " + curStep + " step starts");
+
 		KMeansModel kMeansModel = getKMeansModel(javaSparkContext);
 		Vector[] vectors = kMeansModel.clusterCenters();
 		System.out.println("initial cluster centers are：");
 		for (int i = 0; i < vectors.length; i++) {
 			System.out.println(Arrays.toString(vectors[i].toArray()));
 		}
-
-		curStep++;
-		config.setCurStep(curStep);
-		System.out.println("The " + curStep + " step starts");
 
 		// run Util.NUM_ITERATION_PER_STEP iterations in one step
 		int curIterations = interationsPerStep;
@@ -181,15 +186,6 @@ public class KMeansJobStepByStep {
 	 */
 	private static KMeansModel getKMeansModel(JavaSparkContext javaSparkContext) {
 		KMeansModel kMeansModel = getKMeansModelFromFile(javaSparkContext.sc());
-		if(kMeansModel == null){
-			System.out.println("Not get model from the file, init model");
-			kMeansModel = new KMeans()
-					.setK(Util.NUM_CLUSTERS)
-					.setInitializationMode("random")
-					.setSeed(1L)
-					.setMaxIterations(1)
-					.run(getInputDataSetRDD(javaSparkContext));
-		}
 		return kMeansModel;
 	}
 
@@ -207,17 +203,28 @@ public class KMeansJobStepByStep {
 
 
 	private static KMeansModel getKMeansModelFromFile(SparkContext context) {
-		boolean isModelExist = FileUtil.isHadoopDirectoryExist(config.getModelPath());
-        if(isModelExist){
-			System.out.println("Get the model from the file successfully.");
-            return KMeansModel.load(context, config.getModelPath());
-        }
-        return null;
+		if(curStep == 1){
+			System.out.println("The first step, get the initial model from the file successfully.");
+			return KMeansModel.load(context, config.getInitialModelPath());
+		}else{
+			System.out.println("Get the intermediate result from the file successfully.");
+			return KMeansModel.load(context, config.getModelPath());
+		}
 	}
 
 	private static void saveKMeansModel(SparkContext context, KMeansModel model) {
 		FileUtil.deleteFile(config.getModelPath());
 	    model.save(context, config.getModelPath());
+	}
+
+	private static void generateInitialKMeansModel(JavaSparkContext context) {
+		KMeansModel kMeansModel = new KMeans()
+				.setK(Util.NUM_CLUSTERS)
+				.setInitializationMode("random")
+				.setSeed(1L)
+				.setMaxIterations(1)
+				.run(getInputDataSetRDD(context));
+		kMeansModel.save(context.sc(), config.getInitialModelPath());
 	}
 }
 

@@ -1,23 +1,15 @@
 package uk.ac.gla.scheduler;
 
-import java.util.List;
+import uk.ac.gla.util.Util;
 
 public class Evaluator {
-    public double compare(List<ExecuteWindow> otherWindows, List<ExecuteWindow> bestWindows){
+    public double compare(Result resultOtherWay, Result resultWithInterrupions){
 
-        double carbonEmissionsOtherWindows = 0;
-        for(ExecuteWindow window : otherWindows){
-            carbonEmissionsOtherWindows += window.getCarbonEmissions();
-        }
-        System.out.println("The carbon emissions are " + carbonEmissionsOtherWindows + " in other strategy.");
+        System.out.println("The carbon emissions are " + resultOtherWay.getCarbonEmissions());
+        System.out.println("The carbon emissions are " + resultWithInterrupions.getCarbonEmissions() + " with interruptions.");
 
-        double carbonEmissionsBestWindows = 0;
-        for(ExecuteWindow window : bestWindows){
-            carbonEmissionsBestWindows += window.getCarbonEmissions();
-        }
-        System.out.println("The carbon emissions are " + carbonEmissionsBestWindows + " in best windows.");
-
-        double result = (carbonEmissionsOtherWindows - carbonEmissionsBestWindows) / carbonEmissionsOtherWindows;
+        double result = (resultOtherWay.getCarbonEmissions() - resultWithInterrupions.getCarbonEmissions()) / resultOtherWay.getCarbonEmissions();
+        result = Util.formatDecimalWithTwoDecimal(result);
         System.out.println("The saved carbon emissions are " + result);
         return result;
     }
