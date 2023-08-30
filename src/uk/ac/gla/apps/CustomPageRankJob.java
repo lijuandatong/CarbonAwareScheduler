@@ -27,12 +27,7 @@ public class CustomPageRankJob {
         String root;
         int iterations;
         int interruptions;
-//        String executionLogPath;
         if(args == null || args.length == 0){
-            // local
-//            File hadoopDIR = new File("resources/hadoop/"); // represent the hadoop directory as a Java file so we can get an absolute path for it
-//            System.setProperty("hadoop.home.dir", hadoopDIR.getAbsolutePath()); // set the JVM system property so that Spark finds it
-
             workloadId = "local_workload_02";
             root = "";
             iterations = Util.NUM_ITERATION;
@@ -42,11 +37,9 @@ public class CustomPageRankJob {
         }else{
             workloadId = args[0];
             sparkMasterDef = args[1];
-            root = args[2]; // 存储桶的名字 dataproc-staging-europe-north1-50159985750-plelxggi
-            // 转换为路径 gs://dataproc-staging-europe-north1-50159985750-plelxggi/
+            root = args[2]; // the name of bucket: dataproc-staging-europe-north1-50159985750-plelxggi
             iterations = Integer.valueOf(args[3]);
             interruptions = Integer.valueOf(args[4]);
-//            executionLogPath = args[5];
         }
         config = new Config();
         config.setAppName("PageRank");
@@ -65,14 +58,14 @@ public class CustomPageRankJob {
         config.setDbTb("t_workload_history_step_by_step");
         config.setIterations(iterations);
         config.setLogPath(root + "data/log/spark-events-by-step");
-        // 打断次数 打断2次，则分三个步骤执行
+        // The number of interruptions
         config.setInterruptions(interruptions);
 
         steps = interruptions + 1;
         interationsPerStep = Util.getNumIterationPerStep(config);
-        System.out.println("初始总迭代次数为：" + iterations);
-        System.out.println("总共步骤为：：" + steps);
-        System.out.println("每步的迭代次数：" + interationsPerStep);
+        System.out.println("The number of iterations:" + iterations);
+        System.out.println("The number of steps:" + steps);
+        System.out.println("The number of iterations per step:" + interationsPerStep);
 
         // get the size of file
         long fileSize = FileUtil.getFileSize(dataSetPath);
@@ -89,7 +82,8 @@ public class CustomPageRankJob {
     }
 
     private static void submitSparkJob(JavaSparkContext javaSparkContext) {
-        JavaPairRDD<String, Double> ranks = getRanks(javaSparkContext);
+        JavaPairRDD<String, Iterable<String>> links = getLinks(javaSparkContext);
+        JavaPairRDD<String, Double> ranks = getRanks(javaSparkContext, links);
 
         curStep++;
         config.setCurStep(curStep);
@@ -100,11 +94,11 @@ public class CustomPageRankJob {
         if(curStep == steps){
             curIterations = config.getIterations() - interationsPerStep * (steps - 1);
         }
-        System.out.println("目前是第 " + curStep + "步");
-        System.out.println("本步迭代要迭代 " + curIterations + " 次");
+        System.out.println("The current step is: " + curStep);
+        System.out.println("The number of iterations in this step is:" + curIterations);
 
         for (int i = 1; i <= curIterations; i++) {
-            JavaPairRDD<String, Double> contributions = getLinks(javaSparkContext).join(ranks).values()
+            JavaPairRDD<String, Double> contributions = links.join(ranks).values()
                     .flatMapToPair(pair -> {
                         Iterable<String> urls = pair._1();
                         double rank = pair._2();
@@ -120,14 +114,10 @@ public class CustomPageRankJob {
                     });
             ranks = contributions.reduceByKey(Double::sum)
                     .mapToPair(pair -> new Tuple2<>(pair._1(), 0.15 + 0.85 * pair._2()));
-
-//            ranks.foreach(data -> System.out.println(data));
-//             打印前 10 条记录
             List<Tuple2<String, Double>> records = ranks.take(10);
             for(Tuple2<String, Double> data : records){
                 System.out.println("calculate model is Key: " + data._1() + ", Value: " + data._2());
             }
-//            saveRanks(ranks);
         }
 
         numIteration = numIteration + curIterations;
@@ -154,7 +144,7 @@ public class CustomPageRankJob {
         // load the data set
         JavaPairRDD<String, Iterable<String>> links = javaSparkContext.textFile(config.getDataSetPath())
                 .mapToPair(line -> {
-                    String[] parts = line.split(" ");
+                    String[] parts = line.split("\t");
                     return new Tuple2<>(parts[0], parts[1]);
                 })
                 .distinct()
@@ -164,21 +154,12 @@ public class CustomPageRankJob {
         return links;
     }
 
-    private static JavaPairRDD<String, Double> getRanks(JavaSparkContext javaSparkContext) {
+    private static JavaPairRDD<String, Double> getRanks(JavaSparkContext javaSparkContext, JavaPairRDD<String, Iterable<String>> links) {
         JavaPairRDD<String, Double> ranks = getRanksFromFile(javaSparkContext);
-        // 打印前 10 条记录
-//        if(ranks != null){
-//            List<Tuple2<String, Double>> records = ranks.take(10);
-//            for(Tuple2<String, Double> data : records){
-//                System.out.println("ranks read from model : Key: " + data._1() + ", Value: " + data._2());
-//            }
-//        }
-
         if(ranks == null){
             // init rank 1.0
             System.out.println("The pagerank model is null, init ranks 1.0");
-            ranks = getLinks(javaSparkContext).mapValues(v -> 1.0);
-//        ranks.foreach(data -> System.out.println(data));
+            ranks = links.mapValues(v -> 1.0);
         }
         return ranks;
     }
@@ -196,7 +177,6 @@ public class CustomPageRankJob {
             System.out.println("model path 为：" + config.getModelPath());
             JavaPairRDD<String, Double> ranks = sparkContext.textFile(config.getModelPath()).mapToPair(line -> {
                 String[] parts = line.substring(1, line.length() - 1).split(",");
-//                System.out.println("从文件中读出来：" + parts[0]);
                 String key = parts[0];
                 Double value = Double.parseDouble(parts[1]);
                 return new Tuple2<>(key, value);

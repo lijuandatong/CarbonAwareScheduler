@@ -24,36 +24,18 @@ public class Test {
         HttpResponse response = null;
         try {
             HttpClient httpClient = HttpClients.createDefault();
-            String url = "https://api.carbonintensity.org.uk/intensity/" + formattedTime + "/fw24h";
-            // 创建 HttpGet 请求
+//            String url = "https://api.carbonintensity.org.uk/intensity/" + formattedTime + "/fw24h";
+//            String url = "https://api.carbonintensity.org.uk/intensity/2023-06-01T12:00Z/2023-06-30T12:00Z";
+//            String url = "https://api.carbonintensity.org.uk/intensity/2023-05-15T12:00Z/2023-06-14T12:00Z";
+
+            String url = "https://api.carbonintensity.org.uk/intensity/2022-04-17T00:00Z/2022-04-24T23:30Z";
+
+//            String url = "https://api.carbonintensity.org.uk/intensity/" + formattedTime + "/fw24h";
+
             HttpGet httpGet = new HttpGet(url);
-            // 发起请求并获取响应
             response = httpClient.execute(httpGet);
             String responseBody = EntityUtils.toString(response.getEntity());
             System.out.println(responseBody);
-
-//            StringBuilder builder = null;
-//            BufferedReader br = null;
-//            FileReader fr = null;
-//            try {
-//                fr = new FileReader("E:\\glasgow\\CS\\bigData\\teamProject\\MasterProject\\src\\uk\\ac\\gla\\scheduler\\carbonforcast.txt");
-//                br = new BufferedReader(fr);
-//                builder = new StringBuilder();
-//                String line;
-//                while((line = br.readLine()) != null){
-//                    builder.append(line);
-//                }
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            } finally {
-//                if(br != null){
-//                    br.close();
-//                }
-//                if(fr != null){
-//                    fr.close();
-//                }
-//            }
-//            responseBody = builder.toString();
 
             JSONArray jsonArray = (JSONArray) JSONObject.parse(responseBody).get("data");
             List<CarbonIntensityWindow> windows = new ArrayList<>();
@@ -66,9 +48,13 @@ public class Test {
             System.out.println("The size of windows is : " + windows.size());
 
             Job job = new Job();
-            job.setRuntime(2.3);
-            job.setOverheadsPercentage(0.05);
-            job.setIterations(50);
+//            job.setRuntime(15);
+//            job.setOverheadsPercentage(0.02);
+//            job.setIterations(40);
+
+            job.setRuntime(5);
+            job.setOverheadsPercentage(0.03);
+            job.setIterations(40);
             System.out.println("This is a " + job.getRuntime() + " hours job with " + job.getIterations() + " iterations");
 
             Scheduler scheduler = new Scheduler(job, windows);

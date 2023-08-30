@@ -36,23 +36,17 @@ public class KMeansJobStepByStep {
 		int interruptions;
 		if(args == null || args.length == 0){
 			// local
-//			File hadoopDIR = new File("resources/hadoop/"); // represent the hadoop directory as a Java file so we can get an absolute path for it
-//			System.setProperty("hadoop.home.dir", hadoopDIR.getAbsolutePath()); // set the JVM system property so that Spark finds it
-
 			workloadId = "local_workload_01";
 			root = "";
 			iterations = Util.NUM_ITERATION;
 			interruptions = Util.NUM_STEPS - 1;
 			sparkMasterDef = "local[4]"; // default is local mode with two executors
-//			dbPath = "jdbc:mysql://localhost:3306/master_project_database?useSSL=false&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Europe/London&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&user=root&password=root";
 		}else{
 			workloadId = args[0];
 			sparkMasterDef = args[1];
-			root = args[2]; // 存储桶的名字 dataproc-staging-europe-north1-50159985750-plelxggi
-			// 转换为路径 gs://dataproc-staging-europe-north1-50159985750-plelxggi/
+			root = args[2]; // The name of bucket: dataproc-staging-europe-north1-50159985750-plelxggi
 			iterations = Integer.valueOf(args[3]);
 			interruptions = Integer.valueOf(args[4]);
-//            executionLogPath = args[5];
 		}
 
 		config = new Config();
@@ -72,14 +66,13 @@ public class KMeansJobStepByStep {
 		config.setExecutionLogPath(root + "results/execution_log.csv");
 		config.setIterations(iterations);
 		config.setLogPath(root + "data/log/spark-events-by-step");
-		// 打断次数 打断2次，则分三个步骤执行
 		config.setInterruptions(interruptions);
 
 		steps = interruptions + 1;
 		interationsPerStep = Util.getNumIterationPerStep(config);
-		System.out.println("初始总迭代次数为：" + iterations);
-		System.out.println("总共步骤为：：" + steps);
-		System.out.println("每步的迭代次数：" + interationsPerStep);
+		System.out.println("The number of iterations is :" + iterations);
+		System.out.println("The number of steps is :" + steps);
+		System.out.println("The number of iterations of each step is :" + interationsPerStep);
 
 		// get the size of file
 		long fileSize = FileUtil.getFileSize(dataSetPath);
@@ -92,9 +85,6 @@ public class KMeansJobStepByStep {
 		System.out.println("Delete the model generated in last time");
 
 		JavaSparkContext sparkContext = initSparkContext(config);
-
-//		generateInitialKMeansModel(sparkContext);
-//		sparkContext.close();
 
 		submitSparkJob(sparkContext);
 	}
@@ -113,10 +103,6 @@ public class KMeansJobStepByStep {
 	}
 
 	private static void submitSparkJob(JavaSparkContext javaSparkContext) {
-		curStep++;
-		config.setCurStep(curStep);
-		System.out.println("The " + curStep + " step starts");
-
 		KMeansModel kMeansModel = getKMeansModel(javaSparkContext);
 		Vector[] vectors = kMeansModel.clusterCenters();
 		System.out.println("initial cluster centers are：");
@@ -124,13 +110,17 @@ public class KMeansJobStepByStep {
 			System.out.println(Arrays.toString(vectors[i].toArray()));
 		}
 
+		curStep++;
+		config.setCurStep(curStep);
+		System.out.println("The " + curStep + " step starts");
+
 		// run Util.NUM_ITERATION_PER_STEP iterations in one step
 		int curIterations = interationsPerStep;
 		if(curStep == steps){
 			curIterations = config.getIterations() - interationsPerStep * (steps - 1);
 		}
-		System.out.println("目前是第 " + curStep + "步");
-		System.out.println("本步迭代要迭代 " + curIterations + " 次");
+		System.out.println("The current step is: " + curStep);
+		System.out.println("The number of iterations in this step is :" + curIterations);
 
 		kMeansModel = new KMeans()
 				.setK(Util.NUM_CLUSTERS)
@@ -186,6 +176,15 @@ public class KMeansJobStepByStep {
 	 */
 	private static KMeansModel getKMeansModel(JavaSparkContext javaSparkContext) {
 		KMeansModel kMeansModel = getKMeansModelFromFile(javaSparkContext.sc());
+		if(kMeansModel == null){
+			System.out.println("Not get model from the file, init model");
+			kMeansModel = new KMeans()
+					.setK(Util.NUM_CLUSTERS)
+					.setInitializationMode("random")
+					.setSeed(1L)
+					.setMaxIterations(1)
+					.run(getInputDataSetRDD(javaSparkContext));
+		}
 		return kMeansModel;
 	}
 
@@ -203,13 +202,12 @@ public class KMeansJobStepByStep {
 
 
 	private static KMeansModel getKMeansModelFromFile(SparkContext context) {
-		if(curStep == 1){
-			System.out.println("The first step, get the initial model from the file successfully.");
-			return KMeansModel.load(context, config.getInitialModelPath());
-		}else{
-			System.out.println("Get the intermediate result from the file successfully.");
+		boolean isModelExist = FileUtil.isHadoopDirectoryExist(config.getModelPath());
+		if(isModelExist){
+			System.out.println("Get the model from the file successfully.");
 			return KMeansModel.load(context, config.getModelPath());
 		}
+		return null;
 	}
 
 	private static void saveKMeansModel(SparkContext context, KMeansModel model) {

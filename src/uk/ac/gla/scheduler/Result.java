@@ -4,10 +4,9 @@ import java.util.List;
 
 public class Result {
     private int interruptions;
-    // 最佳执行窗口，不包含打断支出
+    // The best execution windows
     private List<ExecuteWindow> bestWindows;
-    // 碳排放
-    private double carbonEmissions; // unit: g (1kw power) = runtime * intensity
+    private double carbonEmissions; // unit: g = runtime * intensity (1kw power)
 
     public int getInterruptions() {
         return interruptions;

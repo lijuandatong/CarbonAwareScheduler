@@ -6,9 +6,9 @@ import java.util.List;
 public class ExecuteWindow {
     private LocalDateTime from;
     private LocalDateTime to;
-    private int iterations; // 一个执行窗口执行多少次迭代
+    private int iterations; // The number of iterations executed in a window
     private List<CarbonIntensityWindow> subWindows; // Execution windows may have several consecutive windows
-    private double carbonEmissions; // unit: g (1kw power) = runtime * intensity
+    private double carbonEmissions; // unit: g  = runtime * intensity (1kw power)
 
     public LocalDateTime getFrom() {
         return from;

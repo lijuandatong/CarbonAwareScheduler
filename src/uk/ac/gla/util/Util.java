@@ -9,14 +9,14 @@ public final class Util {
 //    public static final int NUM_DATASETS1 = 00000000; //200,000,000 7.78G 41min// 400,000,000 15G 70min//40,000,000 1.57G   // 50,000,000 1.96G
 
     public static final int NUM_ITERATION = 10;
-    public static final int NUM_STEPS = 3;  // 2, 3, 4, 5, 6, 7, 8 --> interruption: 1, 2, 3, 4, 5, 6, 7
+    public static final int NUM_STEPS = 1;  // 2, 3, 4, 5, 6, 7, 8 --> interruption: 1, 2, 3, 4, 5, 6, 7
 
     public static final int NUM_CLUSTERS = 8;
     public static final int NUM_DATASETS = 100000000; //50,000,000
-    public static final String KMEANS_DATA_SET_PATH = "data/kmeans_input_data1.txt";
+    public static final String KMEANS_DATA_SET_PATH = "data/kmeans_input_data.txt";
     public static final String KMEANS_MODEL_PATH = "data/K-Means_model";
 
-    public static final String PAGERANK_DATA_SET_RELATIVE_PATH = "data/web-Google.txt";
+    public static final String PAGERANK_DATA_SET_RELATIVE_PATH = "data/com-orkut.ungraph.txt";
     public static final String PAGERANK_MODEL_RELATIVE_PATH = "data/pagerank_model";
 
     public static int getNumIterationPerStep(Config config){
@@ -36,13 +36,13 @@ public final class Util {
     }
 
     public static double formatDecimalWithOneDecimal(double number){
-        DecimalFormat df = new DecimalFormat("#.0"); // 格式化模式，保留一位小数
+        DecimalFormat df = new DecimalFormat("#.0");
         String formattedNumber = df.format(number);
         return Double.parseDouble(formattedNumber);
     }
 
     public static double formatDecimalWithTwoDecimal(double number){
-        DecimalFormat df = new DecimalFormat("#.00"); // 格式化模式，保留两位小数
+        DecimalFormat df = new DecimalFormat("#.00");
         String formattedNumber = df.format(number);
         return Double.parseDouble(formattedNumber);
     }

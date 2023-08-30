@@ -2,7 +2,7 @@ package uk.ac.gla.scheduler;
 
 public class Job {
     private double runtime; // unit is hour
-    private double overheadsPercentage;  // overheads per interruption
+    private double overheadsPercentage;  // overhead per interruption
     private int iterations;
 
     public double getRuntime() {

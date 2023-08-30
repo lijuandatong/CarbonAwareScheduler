@@ -3,7 +3,7 @@ package uk.ac.gla.scheduler;
 import java.time.LocalDateTime;
 
 /***
- * 碳强度预测窗口，大小默认半个小时
+ * The carbon intensity window with the size of half an hour
  */
 public class CarbonIntensityWindow{
     private LocalDateTime from;
